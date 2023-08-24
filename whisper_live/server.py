@@ -2,6 +2,7 @@ import websockets
 import pickle, struct, time, pyaudio
 import threading
 import os, json
+import glob2 as glob
 import base64
 import wave
 import textwrap
@@ -185,6 +186,9 @@ class ServeClient:
                 }
             )
         )
+        
+        # save text to file
+        self.create_new_text_file()
     
     def fill_output(self, output):
         """
@@ -414,8 +418,31 @@ class ServeClient:
 
         # Print each line of formatted text
         for element in formatted_text:
+            # display the current segment 
             print(element)
+            # append the current segment to the text file
+            self.append_text_to_current_file([element])
+
+    def append_text_to_current_file(self, text):
+        with open(self.current_text_file, 'a') as file:
+            file.write('\n'.join(text) + '\n')
+            
+    def create_new_text_file(self):
         
+        # get_next_text_filename
+        existing_files = glob.glob("course_text_*.txt")
+        if not existing_files:
+            self.current_text_file = "course_text_1.txt"
+        else:
+            # get the last file
+            last_file = sorted(existing_files)[-1]
+            self.text_file_counter = int(last_file.split('_')[-1].split('.')[0])
+            self.current_text_file = f"course_text_{self.text_file_counter + 1}.txt"
+        
+        # create the new file
+        with open(self.current_text_file, 'w') as file:
+            file.write("")
+    
     def disconnect(self):
         self.websocket.send(
             json.dumps(
