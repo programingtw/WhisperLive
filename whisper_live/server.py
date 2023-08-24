@@ -285,10 +285,6 @@ class ServeClient:
                     if last_segment is not None:
                         segments = segments + [last_segment]
                     
-                    # 顯示正在傳送的文本
-                    sending_text = last_segment['text'] if last_segment else ''
-                    print("Sending Text:", sending_text)
-                    
                     try:
                         self.websocket.send(
                             json.dumps({
@@ -392,8 +388,40 @@ class ServeClient:
         if offset is not None:
             self.timestamp_offset += offset
 
+        # 在伺服器端處理文本並顯示
+        self.update_processed_text(self.text)
+        self.display_processed_text()
+        
         return last_segment
     
+    def update_processed_text(self, text):
+        unique_text = []
+        formatted_text = []
+
+        for seg in reversed(text):
+            if not unique_text or unique_text[-1] != seg:
+                unique_text.append(seg)
+
+        wrapper = textwrap.TextWrapper(width=60)
+        for element in unique_text:
+            word_list = wrapper.wrap(text=element)
+            formatted_text.extend(word_list)
+
+        # Clear the terminal
+        if os.name == 'nt':
+            os.system('cls')
+        else:
+            os.system('clear')
+
+        # Print each line of formatted text
+        for element in formatted_text:
+            print(element)
+
+    def display_processed_text(self):
+        self.update_processed_text(self.text)
+
+
+        
     def disconnect(self):
         self.websocket.send(
             json.dumps(
