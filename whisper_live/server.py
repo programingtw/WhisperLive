@@ -424,8 +424,12 @@ class ServeClient:
             self.append_text_to_current_file([element])
 
     def append_text_to_current_file(self, text):
-        with open(self.current_text_file, 'a') as file:
-            file.write('\n'.join(text) + '\n')
+    with open(self.current_text_file, 'r') as file:
+        existing_text = file.read()
+        if '\n'.join(text) + '\n' not in existing_text:
+            with open(self.current_text_file, 'a') as file:
+                file.write('\n'.join(text) + '\n')
+
             
     def create_new_text_file(self):
         
