@@ -285,12 +285,16 @@ class ServeClient:
                     if last_segment is not None:
                         segments = segments + [last_segment]
                     
+                    # 同步顯示文本在伺服器上
+                    for segment in segments:
+                        logging.info(f"Segment: {segment['text']}")
+                    
                     try:
                         self.websocket.send(
                             json.dumps({
                                 "uid": self.client_uid,
                                 "segments": segments
-                            })
+                            }) 
                         )
                     except Exception as e:
                         logging.error(f"[ERROR]: {e}")
