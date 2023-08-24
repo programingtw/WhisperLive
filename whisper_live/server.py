@@ -390,7 +390,6 @@ class ServeClient:
 
         # 在伺服器端處理文本並顯示
         self.update_processed_text(self.text)
-        self.display_processed_text()
         
         return last_segment
     
@@ -416,11 +415,6 @@ class ServeClient:
         # Print each line of formatted text
         for element in formatted_text:
             print(element)
-
-    def display_processed_text(self):
-        self.update_processed_text(self.text)
-
-
         
     def disconnect(self):
         self.websocket.send(
