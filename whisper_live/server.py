@@ -285,9 +285,9 @@ class ServeClient:
                     if last_segment is not None:
                         segments = segments + [last_segment]
                     
-                    # 同步顯示文本在伺服器上
-                    for segment in segments:
-                        logging.info(f"Segment: {segment['text']}")
+                    # 顯示正在傳送的文本
+                    sending_text = last_segment['text'] if last_segment else ''
+                    print("Sending Text:", sending_text)
                     
                     try:
                         self.websocket.send(
