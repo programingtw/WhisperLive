@@ -55,12 +55,13 @@ class Client:
     uid = str(uuid.uuid4())
     WAITING = False
     
-    def __init__(self, host=None, port=None, is_multilingual=False, lang=None, translate=False):
+    def __init__(self, host=None, port=None, client_type="Teacher" , is_multilingual=False, lang=None, translate=False):
         Client.multilingual = is_multilingual
         Client.language = lang if is_multilingual else "en"
         if translate:
             Client.task = "translate"
-
+        Client.client_type = client_type # 使用者的身份
+        
         self.timestamp_offset = 0.0
         self.audio_bytes = None
         self.p = pyaudio.PyAudio()
@@ -149,11 +150,12 @@ class Client:
 
     @staticmethod
     def on_open(ws):
-        print(Client.multilingual, Client.language, Client.task)
+        print(Client.client_type, Client.multilingual, Client.language, Client.task)
 
         print("[INFO]: Opened connection")
         ws.send(json.dumps({
             'uid': Client.uid,
+            'client_type': Client.client_type,
             'multilingual': Client.multilingual,
             'language': Client.language,
             'task': Client.task
@@ -278,22 +280,94 @@ class Client:
             os.remove(in_file)
         wf.close()
 
+class ClientStudent:
+    CHUNK = 1024
+    FORMAT = pyaudio.paInt16
+    CHANNELS = 1
+    RATE = 16000
+
+    def __init__(self, host, port, client_type="Student"):
+        self.client_type = client_type
+        self.audio_player = pyaudio.PyAudio()
+        self.stream = None
+        self.client_type = client_type # 使用者的身份
+        
+        # create websocket connection
+        if host is not None and port is not None:
+            socket_url = f"ws://{host}:{port}"    
+            self.client_socket = websocket.WebSocketApp(socket_url,
+                                  on_open=self.on_open,
+                                  on_message=self.on_message,
+                                  on_error=self.on_error,
+                                  on_close=self.on_close)
+        else:
+            print("[ERROR]: No host or port specified.")
+            return
+
+        self.playing = False
+    
+    def on_message(self, ws, message):
+        print("[INFO]: Received message")
+        try:
+            audio_data = np.frombuffer(message, dtype=np.float32)
+            if not self.playing:
+                self.playing = True
+                self.play_audio(audio_data)
+        except Exception as e:
+            print("[ERROR]:", e)
+
+
+
+    def on_error(self, ws, error):
+        print("[ERROR]:", error)
+
+    def on_close(self, ws, close_status_code, close_msg):
+        print(f"[INFO]: Websocket connection closed.")
+
+    def on_open(self, ws):
+        print("[INFO]: Opened connection")
+        ws.send(json.dumps({"client_type": self.client_type}))
+
+    def play_audio(self, audio_data):
+        self.stream = self.audio_player.open(format=self.FORMAT,
+                                             channels=self.CHANNELS,
+                                             rate=self.RATE,
+                                             output=True)
+        try:
+            for i in range(0, len(audio_data), self.CHUNK):
+                chunk = audio_data[i:i + self.CHUNK].tobytes()
+                self.stream.write(chunk)
+        except KeyboardInterrupt:
+            pass
+        finally:
+            self.stream.stop_stream()
+            self.stream.close()
+            self.playing = False
+
+    def run(self):
+        self.client_socket.run_forever()
 
 class TranscriptionClient:
-    def __init__(self, host, port, is_multilingual=False, lang=None, translate=False):
-        self.client = Client(host, port, is_multilingual, lang, translate)
+    def __init__(self, host, port, client_type="Student", is_multilingual=False, lang=None, translate=False):
+        if client_type == "Teacher":
+            self.client = Client(host, port, client_type, is_multilingual, lang, translate)
+        elif client_type == "Student":
+            self.client = ClientStudent(host, port, client_type)
         
     def __call__(self, audio=None):
         print("[INFO]: Waiting for server ready ...")
-        while not Client.RECORDING:
-            if Client.WAITING:
-                self.client.close_websocket()
-                return
-            pass
+        if self.client.client_type == "Student":
+            self.client.run()
+        elif self.client.client_type == "Teacher":
+            while not Client.RECORDING:
+                if Client.WAITING:
+                    self.client.close_websocket()
+                    return
+                pass
+            if audio is not None:
+                resampled_file = resample(audio)
+                self.client.play_file(resampled_file)
+            else:
+                self.client.record()
         print("[INFO]: Server Ready!")
-        if audio is not None:
-            resampled_file = resample(audio)
-            self.client.play_file(resampled_file)
-        else:
-            self.client.record()
 

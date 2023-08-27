@@ -76,13 +76,20 @@ class TranscriptionServer:
             del websocket
             return
         
-        client = ServeClient(
-            websocket,
-            multilingual=options["multilingual"],
-            language=options["language"],
-            task=options["task"],
-            client_uid=options["uid"]
-        )
+        client = None
+        
+        if options["client_type"] == "Student":
+            client = ServeClientStudent(
+                websocket,
+            )
+        elif options["client_type"] == "Teacher":
+            client = ServeClient(
+                websocket,
+                multilingual=options["multilingual"],
+                language=options["language"],
+                task=options["task"],
+                client_uid=options["uid"]
+            )
         
         self.clients[websocket] = client
         self.clients_start_time[websocket] = time.time() 
@@ -92,14 +99,15 @@ class TranscriptionServer:
                 frame_data = websocket.recv()
                 frame_np = np.frombuffer(frame_data, dtype=np.float32)
 
-                try:
-                    speech_prob = self.vad_model(torch.from_numpy(frame_np.copy()), self.RATE).item()
-                    if speech_prob < self.vad_threshold:
-                        continue
-                    
-                except Exception as e:
-                    logging.error(e)
-                    return
+                if options["client_type"] == "Teacher":
+                    try:
+                        speech_prob = self.vad_model(torch.from_numpy(frame_np.copy()), self.RATE).item()
+                        if speech_prob < self.vad_threshold:
+                            continue
+                        
+                    except Exception as e:
+                        logging.error(e)
+                        return
                 self.clients[websocket].add_frames(frame_np)
 
                 elapsed_time = time.time() - self.clients_start_time[websocket]
@@ -461,3 +469,20 @@ class ServeClient:
         logging.info("Cleaning up.")
         self.exit = True
         self.transcriber.destroy()
+
+class ServeClientStudent:
+    def __init__(self, websocket):
+        self.websocket = websocket
+
+    def add_frames(self, frame_data):
+        try:
+            self.websocket.send(frame_data)
+        except Exception as e:
+            logging.error(e)
+            self.cleanup()
+
+    def cleanup(self):
+        try:
+            self.websocket.close()
+        except Exception as e:
+            pass
