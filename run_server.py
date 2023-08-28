@@ -2,4 +2,4 @@ from whisper_live.server import TranscriptionServer
 
 if __name__ == "__main__":
     server = TranscriptionServer()
-    server.run("140.121.17.72", 8080)
+    server.run("0.0.0.0", 9090)
