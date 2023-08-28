@@ -343,7 +343,7 @@ class ClientStudent:
             self.stream.stop_stream()
             self.stream.close()
             self.playing = False
-
+    
     def run(self):
         self.client_socket.run_forever()
 

@@ -92,8 +92,9 @@ class TranscriptionServer:
             )
         
         self.clients[websocket] = client
-        self.clients_start_time[websocket] = time.time() 
-
+        self.clients_start_time[websocket] = time.time()
+        print(f"Client {options['client_type']} connected.")
+        
         while True:
             try:
                 frame_data = websocket.recv()
@@ -108,7 +109,10 @@ class TranscriptionServer:
                     except Exception as e:
                         logging.error(e)
                         return
-                self.clients[websocket].add_frames(frame_np)
+                    self.clients[websocket].add_frames(frame_np)
+                    for student_ws in self.clients.keys():
+                        if student_ws != websocket:  # 廣播給自己以外的人
+                            student_ws.send(frame_data)
 
                 elapsed_time = time.time() - self.clients_start_time[websocket]
                 if elapsed_time >= self.max_connection_time:
