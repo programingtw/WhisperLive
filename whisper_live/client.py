@@ -334,16 +334,23 @@ class ClientStudent:
                                              rate=self.RATE,
                                              output=True)
         try:
-            for i in range(0, len(audio_data), self.CHUNK):
-                chunk = audio_data[i:i + self.CHUNK].tobytes()
-                self.stream.write(chunk)
+            self.stream.start_stream()
+            audio_bytes = self.float_array_to_bytes(audio_data)
+            for i in range(0, len(audio_bytes), self.CHUNK * 2):  # *2 because each sample is 2 bytes (16-bit)
+                chunk = audio_bytes[i:i + self.CHUNK * 2]
+                self.stream.write(chunk)  # Write audio data to the output stream
         except KeyboardInterrupt:
             pass
         finally:
             self.stream.stop_stream()
             self.stream.close()
             self.playing = False
-    
+
+    def float_array_to_bytes(self, float_array):
+        scaled_data = (float_array * 32768.0).astype(np.int16)
+        audio_bytes = scaled_data.tobytes()
+        return audio_bytes
+
     def run(self):
         self.client_socket.run_forever()
 
